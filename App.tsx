@@ -751,14 +751,14 @@ const TelegramModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
                 </p>
 
                 <a 
-                    href="https://t.me/Sl_flix_ofiicial" 
+                    href="https://t.me/MovieBeastXZone" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     onClick={onClose}
                     className="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-extrabold rounded-2xl shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-3 transition-all transform active:scale-95 text-base"
                 >
                     <i className="fa-brands fa-telegram text-xl"></i>
-                    <span>Join @Sl_flix_ofiicial</span>
+                    <span>Join @MovieBeastXZone</span>
                 </a>
                 
                 <div className="mt-4">
