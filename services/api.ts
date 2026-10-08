@@ -741,15 +741,30 @@ export const ApiService = {
         try {
             let data = await fetchJson('/api/anime/home');
             let items: AnimeItem[] = [];
-            if (data && data.success && Array.isArray(data.data)) {
+            if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
                 items = data.data;
-            } else if (Array.isArray(data)) {
+            } else if (Array.isArray(data) && data.length > 0) {
                 items = data;
             } else {
-                // Direct fallback
-                const directRes = await fetch('https://api.omegatech.app/api/Anime/Nimegami?action=home');
-                const directJson = await directRes.json();
-                if (directJson && directJson.data) items = directJson.data;
+                // Direct Omegatech fallback (Oploverz Indonesian Sub)
+                try {
+                    const directRes = await fetch('https://api.omegatech.app/api/Anime/Oploverz?action=home');
+                    const directJson = await directRes.json();
+                    if (directJson && directJson.data) {
+                        const raw = [...(directJson.data.trending || []), ...(directJson.data.latestEpisodes || []), ...(directJson.data.featured || [])];
+                        const seen = new Set();
+                        for (const it of raw) {
+                            if (it.title && !seen.has(it.title)) {
+                                seen.add(it.title);
+                                items.push({ title: it.title, image: it.image || it.poster, link: it.url || it.watchUrl });
+                            }
+                        }
+                    }
+                } catch (e1) {
+                    const directRes = await fetch('https://api.omegatech.app/api/Anime/Nimegami?action=home');
+                    const directJson = await directRes.json();
+                    if (directJson && directJson.data) items = directJson.data;
+                }
             }
             const result = { trending: items };
             cacheService.set(cacheKey, result, 10 * 60 * 1000);
@@ -757,9 +772,13 @@ export const ApiService = {
         } catch (e) {
             console.error('[API] Failed to fetch anime home:', e);
             try {
-                const directRes = await fetch('https://api.omegatech.app/api/Anime/Nimegami?action=home');
+                const directRes = await fetch('https://api.omegatech.app/api/Anime/Oploverz?action=home');
                 const directJson = await directRes.json();
-                if (directJson && directJson.data) return { trending: directJson.data };
+                if (directJson && directJson.data) {
+                    const raw = [...(directJson.data.trending || []), ...(directJson.data.latestEpisodes || [])];
+                    const items = raw.map((it: any) => ({ title: it.title, image: it.image || it.poster, link: it.url || it.watchUrl }));
+                    return { trending: items };
+                }
             } catch (err) {}
             return { trending: [] };
         }
@@ -771,27 +790,28 @@ export const ApiService = {
             return cached.data;
         }
         try {
-            let data = await fetchJson(`/api/anime/search?query=${encodeURIComponent(query)}`);
+            let data = await fetchJson(`/api/anime/crunchyroll?action=search&q=${encodeURIComponent(query)}`);
             let items: AnimeItem[] = [];
-            if (data && data.success && Array.isArray(data.data)) {
-                items = data.data;
-            } else if (Array.isArray(data)) {
-                items = data;
+            if (data && data.success && data.data && Array.isArray(data.data.results)) {
+                items = data.data.results.map((it: any) => ({
+                    title: it.title,
+                    image: it.poster || it.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800',
+                    link: it.crId || it.slug || it.title,
+                    synopsis: it.description || '',
+                    crId: it.crId,
+                    type: it.type
+                }));
             } else {
-                const directRes = await fetch(`https://api.omegatech.app/api/Anime/Nimegami?action=search&query=${encodeURIComponent(query)}`);
-                const directJson = await directRes.json();
-                if (directJson && directJson.data) items = directJson.data;
+                const fallbackData = await fetchJson(`/api/anime/search?query=${encodeURIComponent(query)}`);
+                if (fallbackData && fallbackData.success && Array.isArray(fallbackData.data) && fallbackData.data.length > 0) {
+                    items = fallbackData.data;
+                }
             }
             const result = { results: items };
             cacheService.set(cacheKey, result, 5 * 60 * 1000);
             return result;
         } catch (e) {
             console.error('[API] Failed to search anime:', e);
-            try {
-                const directRes = await fetch(`https://api.omegatech.app/api/Anime/Nimegami?action=search&query=${encodeURIComponent(query)}`);
-                const directJson = await directRes.json();
-                if (directJson && directJson.data) return { results: directJson.data };
-            } catch (err) {}
             return { results: [] };
         }
     },
@@ -808,6 +828,24 @@ export const ApiService = {
                 return data;
             }
             // Direct fallback
+            try {
+                if (url.includes('oploverz')) {
+                    const directRes = await fetch(`https://api.omegatech.app/api/Anime/Oploverz?action=detail&url=${encodeURIComponent(url)}`);
+                    const directJson = await directRes.json();
+                    if (directJson && directJson.data) {
+                        const d = directJson.data;
+                        const resObj: AnimeDetail = {
+                            title: d.title,
+                            synopsis: d.description || d.synopsis,
+                            image: d.poster || d.image,
+                            link: url,
+                            downloads: [{ server: "Stream HD", url: d.watchUrl || url, resolution: "HD" }]
+                        };
+                        cacheService.set(cacheKey, resObj, 30 * 60 * 1000);
+                        return resObj;
+                    }
+                }
+            } catch (e1) {}
             const directRes = await fetch(`https://api.omegatech.app/api/Anime/Nimegami?action=detail&url=${encodeURIComponent(url)}`);
             const directJson = await directRes.json();
             if (directJson && directJson.data) {
